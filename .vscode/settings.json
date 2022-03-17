@@ -1,0 +1,7 @@
+{
+  "files.exclude": {
+    "**/*.exe": true,
+    "**/*.ppu": true,
+    "**/*.o": true
+  }
+}
