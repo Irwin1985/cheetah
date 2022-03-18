@@ -1,15 +1,12 @@
+Win32/*
+*.dpr
+*.dproj
+*.dproj.local
+*.identcache
+*.res
 *.exe
 *.o
-*.ppu
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-!.vscode/*.code-snippets
-
-# Local History for Visual Studio Code
-.history/
-
-# Built Visual Studio Code Extensions
-*.vsix
+# Delphi history and backups
+__history/
+__recovery/
+*.~*

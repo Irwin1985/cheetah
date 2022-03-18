@@ -1,7 +1,13 @@
-{$mode objfpc}
+{$mode objfpc}{$H+}{$J-}{$modeswitch advancedrecords}
 program main;
 uses 
-    token in 'token/token.pas';
+    token in 'token/token.pas',
+    lexer in 'lexer/lexer.pas';
+var
+    Lexer2: TLexer;
+    T: TToken;
 begin
-    SayHello('Irwin');
+    Lexer2 := NewLexer('=+(){},;');
+    T := Lexer2.NextToken();
+    Writeln(T.Kind);
 end.
