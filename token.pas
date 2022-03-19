@@ -23,6 +23,9 @@ interface
       tkLt,
       tkGt,
 
+      tkEq,
+      tkNotEq,
+
       // Delimiters
       tkComma,
       tkSemicolon,
@@ -34,7 +37,12 @@ interface
 
       // Keywords
       tkFunction,
-      tkLet
+      tkLet,
+      tkTrue,
+      tkFalse,
+      tkIf,
+      tkElse,
+      tkReturn
       );
     TToken = record
       Kind: TTokenKind;
@@ -68,6 +76,11 @@ implementation
     keywords := TDictionary<string, TTokenKind>.Create;
     keywords.Add('fn', tkFunction);
     keywords.Add('let', tkLet);
+    keywords.Add('true', tkTrue);
+    keywords.Add('false', tkFalse);
+    keywords.Add('if', tkIf);
+    keywords.Add('else', tkElse);
+    keywords.Add('return', tkReturn);
 
   finalization
     FreeAndNil(keywords);

@@ -13,13 +13,14 @@ type
       ReadPosition: Integer;
       Ch: Char;
       procedure ReadChar;
-      function NewToken(TokenKind: TTokenKind; Symbol: Char): TToken;
-      function IsLetter(Letter:char):boolean;
-      function ReadIdentifier:string;
-      function ReadNumber:string;
+      function  PeekChar:char;
+      function  NewToken(TokenKind: TTokenKind; Symbol: Char): TToken;
+      function  IsLetter(Letter:char):boolean;
+      function  ReadIdentifier:string;
+      function  ReadNumber:string;
       procedure SkipWhitespace;
-      function IsSpace(c: char):boolean;
-      function IsDigit(c: char):boolean;
+      function  IsSpace(c: char):boolean;
+      function  IsDigit(c: char):boolean;
     public
       function NextToken: TToken;
   end;
@@ -47,6 +48,13 @@ implementation
       inc(ReadPosition);
   end;
 
+  function TLexer.PeekChar: Char;
+  begin
+    if ReadPosition > Length(Input) then
+      Exit(#0);
+    Result := Input[ReadPosition];
+  end;
+  
   function TLexer.NextToken:TToken;
   var
       tok: TToken;
@@ -54,6 +62,13 @@ implementation
       SkipWhitespace;
       case Ch of
           '=': begin
+            if PeekChar() = '=' then 
+            begin
+              ReadChar;
+              tok.Kind := tkEq;
+              tok.Literal := '==';
+            end
+            else
               tok := NewToken(tkAssign, Ch);
           end;
           '+': begin
@@ -63,6 +78,12 @@ implementation
               tok := NewToken(tkMinus, Ch);
           end;
           '!': begin
+            if PeekChar() = '=' then
+            begin
+              tok.Kind := tkNotEq;
+              tok.Literal := '!=';
+            end
+            else
               tok := NewToken(tkBang, Ch);
           end;
           '/': begin
