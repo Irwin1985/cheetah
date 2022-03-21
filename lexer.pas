@@ -80,6 +80,7 @@ implementation
           '!': begin
             if PeekChar() = '=' then
             begin
+              ReadChar; // skip '!'
               tok.Kind := tkNotEq;
               tok.Literal := '!=';
             end

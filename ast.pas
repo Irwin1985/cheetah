@@ -60,6 +60,41 @@ interface
       function ToString: string;
       procedure StatementNode;
     end;
+    // TInteger
+    TIntegerLiteral = class(TInterfacedObject, IExpression)
+      Token: TToken;
+      Value: Integer;
+      function TokenLiteral: string;
+      function ToString: string;
+      procedure ExpressionNode;
+    end;
+    // TBooleanLiteral
+    TBooleanLiteral = class(TInterfacedObject, IExpression)
+      Token: TToken;
+      Value: boolean;
+      procedure ExpressionNode;
+      function TokenLiteral:string;
+      function ToSTring:string;
+    end;
+    // TPrefixExpression
+    TPrefixExpression = class(TInterfacedObject, IExpression)
+      Token: TToken;
+      Optor: string;
+      Right: IExpression;
+      function TokenLiteral: string;
+      function ToString: string;
+      procedure ExpressionNode;
+    end;
+    // TInfixExpression
+    TInfixExpression = class(TInterfacedObject, IExpression)
+      Token: TToken;
+      Optor: string;
+      Left: IExpression;
+      Right: IExpression;
+      procedure ExpressionNode;
+      function TokenLiteral:string;
+      function ToString:string;
+    end;
 implementation
   // TProgram class
   function TProgram.TokenLiteral: string;
@@ -165,11 +200,93 @@ implementation
   end;
 
   function TExpressionStatement.ToString: string;
+  var
+    Output: TStringBuilder;
   begin
-    Result := Expression.ToString;
+    Output := TStringBuilder.Create;
+    try
+      Output.Append(Expression.ToString);
+      Output.Append(';');
+      Result := Output.ToString;
+    finally
+      FreeAndNil(Output);
+    end;
   end;
 
   procedure TExpressionStatement.StatementNode;
   begin
+  end;
+  // TInteger Literal
+  function TIntegerLiteral.TokenLiteral: string;
+  begin
+    Result := Token.Literal;
+  end;
+  function TIntegerLiteral.ToString: string;
+  begin
+    Result := Token.Literal;
+  end;
+  procedure TIntegerLiteral.ExpressionNode;
+  begin
+  end;
+  // TBooleanLiteral
+  procedure TBooleanLiteral.ExpressionNode;
+  begin
+  end;
+  function TBooleanLiteral.TokenLiteral:string;
+  begin
+    Result := Token.Literal;
+  end;
+  function TBooleanLiteral.ToSTring:string;
+  begin
+    Result := Token.Literal;
+  end;
+  // TPrefixExpression
+  function TPrefixExpression.TokenLiteral: string;
+  begin
+     Result := Token.Literal;
+  end;
+  function TPrefixExpression.ToString: string;
+  var
+    Output: TStringBuilder;
+  begin
+    Output := TStringBuilder.Create;
+    try
+      Output.Append('(');
+      Output.Append(Optor);
+      Output.Append(Right.ToString);
+      Output.Append(')');
+      Result := Output.ToString;
+    finally
+      FreeAndNil(Output);
+    end;
+  end;
+  procedure TPrefixExpression.ExpressionNode;
+  begin
+  end;
+
+  procedure TInfixExpression.ExpressionNode;
+  begin
+  end;
+  function TInfixExpression.TokenLiteral:string;
+  begin
+    Result := Token.Literal;
+  end;
+  function TInfixExpression.ToString:string;
+  var
+    Output: TStringBuilder;
+  begin
+    Output := TStringBuilder.Create;
+    try
+      Output.Append('(');
+      Output.Append(Left.ToString);
+      Output.Append(' ');
+      Output.Append(Optor);
+      Output.Append(' ');
+      Output.Append(Right.ToString);
+      Output.Append(')');
+      Result := Output.ToString;
+    finally
+      FreeAndNil(Output);
+    end;
   end;
 end.
