@@ -18,6 +18,7 @@ type
       function  IsLetter(Letter:char):boolean;
       function  ReadIdentifier:string;
       function  ReadNumber:string;
+      function  ReadString:string;
       procedure SkipWhitespace;
       function  IsSpace(c: char):boolean;
       function  IsDigit(c: char):boolean;
@@ -112,10 +113,14 @@ implementation
               tok := NewToken(tkRParen, Ch);
           end;
           '{': begin
-              tok := NewToken(tkRBrace, Ch);
+              tok := NewToken(tkLBrace, Ch);
           end;
           '}': begin
-              tok := NewToken(tkLBrace, Ch);
+              tok := NewToken(tkRBrace, Ch);
+          end;
+          '''', '"': begin // string support
+            tok.Kind := tkString;
+            tok.Literal := ReadString;
           end;
           #0: begin
               tok.Literal := '';
@@ -178,6 +183,21 @@ implementation
     while (Ch <> #0) and (IsDigit(Ch)) do
       ReadChar;
     Result := Copy(Input, Pos, Position-Pos);
+  end;
+
+  function TLexer.ReadString: string;
+  var
+    DelimStr: char;
+    PosIni: integer;
+  begin
+    DelimStr := Ch;
+    ReadChar; // skip string delimiter
+    PosIni := Position;
+    // TODO: add support for escaping characters.
+    // also check for unterminated strings.
+    while (Ch <> #0) and (Ch <> DelimStr) do
+      ReadChar;
+    Result := Copy(Input, PosIni, Position-PosIni);
   end;
 
   procedure TLexer.SkipWhitespace;

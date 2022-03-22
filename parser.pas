@@ -47,9 +47,12 @@ interface
       function ParseIdentifier: IExpression;
       function ParseIntegerLiteral: IExpression;
       function ParseBooleanExpression: IExpression;
+      function ParseStringLiteral: IExpression;
       function ParsePrefixExpression: IExpression;
       function ParseInfixExpression(Left: IExpression): IExpression;
       function ParseGroupedExpression: IExpression;
+      function ParseBlockStatement: TBlockStatement;
+      function ParseIfExpression: IExpression;
 
       // Register procedures
       procedure RegisterPrefix(Kind: TTokenKind; Func: TPrefixParseFn);
@@ -95,7 +98,9 @@ implementation
     Parser.RegisterPrefix(tkBang, Parser.ParsePrefixExpression);
     Parser.RegisterPrefix(tkTrue, Parser.ParseBooleanExpression);
     Parser.RegisterPrefix(tkFalse, Parser.ParseBooleanExpression);
+    Parser.RegisterPrefix(tkString, Parser.ParseStringLiteral);
     Parser.RegisterPrefix(tkLParen, Parser.ParseGroupedExpression);
+    Parser.RegisterPrefix(tkIf, Parser.ParseIfExpression);
 
     // Register infix functions
     Parser.RegisterInfix(tkPlus, Parser.ParseInfixExpression);
@@ -129,7 +134,7 @@ implementation
       Stmt := ParseStatement;
       if Stmt <> nil then
       begin
-        inc(ArrSize);
+        Inc(ArrSize);
         SetLength(ASTProgram.Statements, ArrSize);
         ASTProgram.Statements[ArrSize-1] := Stmt;
       end;
@@ -180,10 +185,10 @@ implementation
     Stmt: TReturnStatement;
   begin
     Stmt := TReturnStatement.Create;
+    Stmt.Token := CurToken;
     Match(tkReturn);
-    while CurToken.Kind <> tkSemicolon do
-      NextToken;
-    Result := Stmt;          
+    Stmt.Value := ParseExpression(LOWEST);
+    Result := Stmt;
   end;
 
   function TParser.CurTokenIs(Kind: TTokenKind): boolean;
@@ -317,6 +322,18 @@ implementation
     Result := Exp;
   end;
 
+  function TParser.ParseStringLiteral: IExpression;
+  var
+    StringLit: TStringLiteral;
+  begin
+    StringLit := TStringLiteral.Create;
+    StringLit.Token := CurToken;
+    StringLit.Value := CurToken.Literal;
+    NextToken;
+    Result := StringLit;
+  end;
+
+
   function TParser.ParsePrefixExpression: IExpression;
   var
     Exp: TPrefixExpression;
@@ -354,5 +371,50 @@ implementation
     Exp := ParseExpression(LOWEST);
     Match(tkRParen);
     Result := Exp;
+  end;
+
+  function TParser.ParseIfExpression: IExpression;
+  var
+    IfExpression: TIfExpression;
+  begin
+    IfExpression := TIfExpression.Create;
+    NextToken; // eat 'if' token
+    Match(tkLParen); // open parenthesis (mandatory)
+    IfExpression.Condition := ParseExpression(LOWEST);
+    Match(tkRParen); // closing parenthesis (mandatory)
+    IfExpression.Consequence := ParseBlockStatement;
+
+    if CurTokenIs(tkElse) then
+    begin
+      NextToken; // eat the 'else' token
+      IfExpression.Alternative := ParseBlockStatement;
+    end;
+
+    Result := IfExpression;
+  end;
+
+  function TParser.ParseBlockStatement: TBlockStatement;
+  var
+    BlockStmt: TBlockStatement;
+    StmtSize: integer;
+    StmtResult: IStatement;
+  begin
+    StmtSize := 0;
+    BlockStmt := TBlockStatement.Create;
+    Match(tkLBrace); // opening curly brace (mandatory)
+    while (not CurTokenIs(tkRBrace)) and (not CurTokenIs(tkEof)) do
+    begin
+      StmtResult := ParseStatement;
+      if StmtResult <> nil then
+      begin
+        Inc(StmtSize);
+        SetLength(BlockStmt.Statements, StmtSize);
+        BlockStmt.Statements[StmtSize-1] := StmtResult;
+      end;
+      if CurTokenIs(tkSemicolon) then
+        NextToken;
+    end;
+    Match(tkRBrace); // closing curly brace (mandatory)
+    Result := BlockStmt;
   end;
 end.

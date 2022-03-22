@@ -11,6 +11,7 @@ interface
       // Identifiers + Literals
       tkIdent,    // add, foobar, x, y, ...
       tkInt,      // 1343456
+      tkString,   // "foo", 'bar'
 
       // Operators
       tkAssign,

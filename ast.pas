@@ -76,6 +76,14 @@ interface
       function TokenLiteral:string;
       function ToSTring:string;
     end;
+    // TStringLiteral
+    TStringLiteral = class(TInterfacedObject, IExpression)
+      Token: TToken;
+      Value: string;
+      procedure ExpressionNode;
+      function TokenLiteral:string;
+      function ToString:string;
+    end;
     // TPrefixExpression
     TPrefixExpression = class(TInterfacedObject, IExpression)
       Token: TToken;
@@ -94,6 +102,24 @@ interface
       procedure ExpressionNode;
       function TokenLiteral:string;
       function ToString:string;
+    end;
+    // TBlockStatement
+    TBlockStatement = class(TInterfacedObject, IStatement)
+      Token: TToken;
+      Statements: array of IStatement;
+      procedure StatementNode;
+      function TokenLiteral:string;
+      function ToString:string;
+    end;
+    // TIfExpression
+    TIfExpression = class(TInterfacedObject, IExpression)
+      Token: TToken;
+      Condition: IExpression;
+      Consequence: TBlockStatement;
+      Alternative: TBlockStatement;
+      procedure ExpressionNode;
+      function TokenLiteral:String;
+      function ToString:String;
     end;
 implementation
   // TProgram class
@@ -184,10 +210,10 @@ implementation
       if Value <> nil then
         Output.Append(Value.ToString);
       Output.Append(';');
+      Result := Output.ToString;
     finally
       FreeAndNil(Output);
     end;
-    Result := Output.ToString;
   end;
   procedure TReturnStatement.StatementNode;
   begin
@@ -240,6 +266,18 @@ implementation
   begin
     Result := Token.Literal;
   end;
+  // TStringLiteral
+  procedure TStringLiteral.ExpressionNode;
+  begin
+  end;
+  function TStringLiteral.TokenLiteral:string;
+  begin
+    Result := Token.Literal;
+  end;
+  function TStringLiteral.ToString:string;
+  begin
+    Result := '"' + Value + '"';
+  end;
   // TPrefixExpression
   function TPrefixExpression.TokenLiteral: string;
   begin
@@ -284,6 +322,64 @@ implementation
       Output.Append(' ');
       Output.Append(Right.ToString);
       Output.Append(')');
+      Result := Output.ToString;
+    finally
+      FreeAndNil(Output);
+    end;
+  end;
+  // TBlockStatement
+  procedure TBlockStatement.StatementNode;
+  begin
+  end;
+  function TBlockStatement.TokenLiteral:string;
+  begin
+    Result := Token.Literal;
+  end;
+  function TBlockStatement.ToString:string;
+  var
+    Output: TStringBuilder;
+    Stmt: IStatement;
+  begin
+    Output := TStringBuilder.Create;
+    try
+      Output.Append('{');
+      //Output.Append(chr(13));
+      for Stmt in Statements do
+      begin
+        Output.Append(Stmt.ToString);
+        //Output.Append(chr(13));
+      end;
+      Output.Append('}');
+      Result := Output.ToString;
+    finally
+      FreeAndNil(Output);
+    end;
+  end;
+
+  // TIfExpression
+  procedure TIfExpression.ExpressionNode;
+  begin
+  end;
+  function TIfExpression.TokenLiteral:String;
+  begin
+    Result := Token.Literal;
+  end;
+  function TIfExpression.ToString:String;
+  var
+    Output: TStringBuilder;
+  begin
+    Output := TStringBuilder.Create;
+    try
+      Output.Append('if (');
+      Output.Append(Condition.ToString);
+      Output.Append(')');
+      Output.Append(Consequence.ToString);
+      if Alternative <> nil then
+      begin
+        //Output.Append(chr(13));
+        Output.Append('else');
+        Output.Append(Alternative.ToString);
+      end;
       Result := Output.ToString;
     finally
       FreeAndNil(Output);
