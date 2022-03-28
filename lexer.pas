@@ -6,12 +6,13 @@ uses
   token;
 
 type
-  TLexer = record
+  TLexer = class(TObject)
     private
       Input: String;
       Position: Integer;
       ReadPosition: Integer;
       Ch: Char;
+      FTok : TToken;
       procedure ReadChar;
       function  PeekChar:char;
       function  NewToken(TokenKind: TTokenKind; Symbol: Char): TToken;
@@ -23,20 +24,18 @@ type
       function  IsSpace(c: char):boolean;
       function  IsDigit(c: char):boolean;
     public
+      constructor Create(const Input: string); overload;
       function NextToken: TToken;
   end;
-  function NewLexer(const i:string): TLexer;
 
 implementation
-  function NewLexer(const i:string): TLexer;
-  var
-      Lexer: TLexer;
+
+  constructor TLexer.Create(const Input: string);
   begin
-    Lexer.Input := i;
-    Lexer.Position := 0;
-    Lexer.ReadPosition := 1;
-    Lexer.ReadChar();
-    Result := Lexer;
+    Self.Input := Input;
+    Self.Position := 0;
+    Self.ReadPosition := 1;
+    Self.ReadChar();
   end;
 
   procedure TLexer.ReadChar;
@@ -57,103 +56,98 @@ implementation
   end;
   
   function TLexer.NextToken:TToken;
-  var
-      tok: TToken;
   begin
+      FTok := TToken.Create;
       SkipWhitespace;
       case Ch of
           '=': begin
             if PeekChar() = '=' then 
             begin
               ReadChar;
-              tok.Kind := tkEq;
-              tok.Literal := '==';
+              FTok.Kind := tkEq;
+              FTok.Literal := '==';
             end
             else
-              tok := NewToken(tkAssign, Ch);
+              FTok := NewToken(tkAssign, Ch);
           end;
           '+': begin
-              tok := NewToken(tkPlus, Ch);
+              FTok := NewToken(tkPlus, Ch);
           end;
           '-': begin
-              tok := NewToken(tkMinus, Ch);
+              FTok := NewToken(tkMinus, Ch);
           end;
           '!': begin
             if PeekChar() = '=' then
             begin
               ReadChar; // skip '!'
-              tok.Kind := tkNotEq;
-              tok.Literal := '!=';
+              FTok.Kind := tkNotEq;
+              FTok.Literal := '!=';
             end
             else
-              tok := NewToken(tkBang, Ch);
+              FTok := NewToken(tkBang, Ch);
           end;
           '/': begin
-              tok := NewToken(tkSlash, Ch);
+              FTok := NewToken(tkSlash, Ch);
           end;
           '*': begin
-              tok := NewToken(tkAsterisk, Ch);
+              FTok := NewToken(tkAsterisk, Ch);
           end;
           '<': begin
-              tok := NewToken(tkLt, Ch);
+              FTok := NewToken(tkLt, Ch);
           end;
           '>': begin
-              tok := NewToken(tkGt, Ch);
+              FTok := NewToken(tkGt, Ch);
           end;
           ';': begin
-              tok := NewToken(tkSemiColon, Ch);
+              FTok := NewToken(tkSemiColon, Ch);
           end;
           ',': begin
-              tok := NewToken(tkComma, Ch);
+              FTok := NewToken(tkComma, Ch);
           end;
           '(': begin
-              tok := NewToken(tkLParen, Ch);
+              FTok := NewToken(tkLParen, Ch);
           end;
           ')': begin
-              tok := NewToken(tkRParen, Ch);
+              FTok := NewToken(tkRParen, Ch);
           end;
           '{': begin
-              tok := NewToken(tkLBrace, Ch);
+              FTok := NewToken(tkLBrace, Ch);
           end;
           '}': begin
-              tok := NewToken(tkRBrace, Ch);
+              FTok := NewToken(tkRBrace, Ch);
           end;
           '''', '"': begin // string support
-            tok.Kind := tkString;
-            tok.Literal := ReadString;
+            FTok.Kind := tkString;
+            FTok.Literal := ReadString;
           end;
           #0: begin
-              tok.Literal := '';
-              tok.Kind := tkEof;
+              FTok.Literal := '';
+              FTok.Kind := tkEof;
           end;
           else begin
               if IsLetter(Ch) then
               begin
-                tok.Literal := ReadIdentifier;
-                tok.Kind := LookupIdent(tok.Literal);
-                Exit(tok);
+                FTok.Literal := ReadIdentifier;
+                FTok.Kind := LookupIdent(FTok.Literal);
+                Exit(FTok);
               end
               else if IsDigit(Ch) then
               begin
-                  tok.Kind := tkInt;
-                  tok.Literal := ReadNumber;
-                  Exit(tok);
+                  FTok.Kind := tkInt;
+                  FTok.Literal := ReadNumber;
+                  Exit(FTok);
               end
               else
-                tok := NewToken(tkIllegal, Ch);
+                FTok := NewToken(tkIllegal, Ch);
           end;
       end;
       ReadChar;
-      Result := tok;
+      Result := FTok;
   end;
 
   function TLexer.NewToken(TokenKind: TTokenKind; Symbol: char): TToken;
-  var
-      T: TToken;
   begin
-      T.Kind := TokenKind;
-      T.Literal := String(Symbol);
-      Result := T;
+      Result := TToken.Create(TokenKind, String(Symbol));
   end;
 
   function TLexer.IsLetter(Letter:char):boolean;

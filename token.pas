@@ -41,22 +41,28 @@ interface
       tkLet,
       tkTrue,
       tkFalse,
+      tkNull,
       tkIf,
       tkElse,
       tkReturn
       );
-    TToken = record
+    TToken = class
       Kind: TTokenKind;
       Literal: string;
-      function ToString: string;
+      constructor Create(Kind: TTokenKind; Literal: string); overload;
+      function Print: string;
     end;
     function LookupIdent(ident:string):TTokenKind;
 
 implementation
   var
     keywords: TDictionary<string, TTokenKind>;
-
-  function TToken.ToString: string;
+  constructor TToken.Create(Kind: TTokenKind; Literal: string);
+  begin
+    Self.Kind := Kind;
+    Self.Literal := Literal;
+  end;
+  function TToken.Print: string;
   begin
     Result := Format('Token(%s, ''%s'')', [GetEnumName(TypeInfo(TTokenKind), Ord(Kind)), Literal]);
   end;
@@ -79,6 +85,7 @@ implementation
     keywords.Add('let', tkLet);
     keywords.Add('true', tkTrue);
     keywords.Add('false', tkFalse);
+    keywords.Add('null', tkNull);
     keywords.Add('if', tkIf);
     keywords.Add('else', tkElse);
     keywords.Add('return', tkReturn);

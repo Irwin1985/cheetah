@@ -2,37 +2,41 @@ unit ast;
 
 interface
   uses
-    SysUtils, Classes, token;
+    SysUtils,
+    Classes,
+    Generics.Collections,
+    token;
 
   type
     // TNode class
     INode = interface
-      ['{9105BFC0-E9D9-4F46-A4C6-F2E2A7D65FEC}']
+      //['{9105BFC0-E9D9-4F46-A4C6-F2E2A7D65FEC}']
       function TokenLiteral: string;
-      function ToString: string;
+      function Print: string;
     end;
     // TStatement class
     IStatement = interface(INode)
-      ['{10C9E129-A0C3-4E5D-AD57-F26C317E2FEE}']
+      //['{10C9E129-A0C3-4E5D-AD57-F26C317E2FEE}']
       procedure StatementNode;
     end;
     // TExpression class
     IExpression = interface(INode)
-      ['{F87674C4-70D1-4CB6-8D75-9FF1823F92B7}']
+      //['{F87674C4-70D1-4CB6-8D75-9FF1823F92B7}']
       procedure ExpressionNode;
     end;
     // TProgram class
     TProgram = class(TInterfacedObject, INode)
-      Statements: array of IStatement;
+      Statements: TArray<IStatement>;
       function TokenLiteral: string;
-      function ToString: string;
+      function Print: string;
     end;
     // TIdentifier
     TIdentifier = class(TInterfacedObject, IExpression)
       Token: TToken;
       Value: string;
+      constructor Create(Token: TToken; Value: string); overload;
       function TokenLiteral: string;
-      function ToString: string;
+      function Print: string;
       procedure ExpressionNode;
     end;
     // TLetStatement class
@@ -41,7 +45,7 @@ interface
       Name: TIdentifier;
       Value: IExpression;
       function TokenLiteral:string;
-      function ToString: string;
+      function Print: string;
       procedure StatementNode;
     end;
     // TReturnStatement
@@ -49,7 +53,7 @@ interface
       Token: TToken;
       Value: IExpression;
       function TokenLiteral:string;
-      function ToString: string;
+      function Print: string;
       procedure StatementNode;
     end;
     // ExpressionStatement
@@ -57,7 +61,7 @@ interface
       Token: TToken;
       Expression: IExpression;
       function TokenLiteral:string;
-      function ToString: string;
+      function Print: string;
       procedure StatementNode;
     end;
     // TInteger
@@ -65,7 +69,7 @@ interface
       Token: TToken;
       Value: Integer;
       function TokenLiteral: string;
-      function ToString: string;
+      function Print: string;
       procedure ExpressionNode;
     end;
     // TBooleanLiteral
@@ -74,7 +78,7 @@ interface
       Value: boolean;
       procedure ExpressionNode;
       function TokenLiteral:string;
-      function ToSTring:string;
+      function Print:string;
     end;
     // TStringLiteral
     TStringLiteral = class(TInterfacedObject, IExpression)
@@ -82,7 +86,14 @@ interface
       Value: string;
       procedure ExpressionNode;
       function TokenLiteral:string;
-      function ToString:string;
+      function Print:string;
+    end;
+    // TNullLiteral
+    TNullLiteral = class(TInterfacedObject, IExpression)
+      Token: TToken;
+      procedure ExpressionNode;
+      function TokenLiteral: string;
+      function Print:string;
     end;
     // TPrefixExpression
     TPrefixExpression = class(TInterfacedObject, IExpression)
@@ -90,7 +101,7 @@ interface
       Optor: string;
       Right: IExpression;
       function TokenLiteral: string;
-      function ToString: string;
+      function Print: string;
       procedure ExpressionNode;
     end;
     // TInfixExpression
@@ -101,7 +112,7 @@ interface
       Right: IExpression;
       procedure ExpressionNode;
       function TokenLiteral:string;
-      function ToString:string;
+      function Print:string;
     end;
     // TBlockStatement
     TBlockStatement = class(TInterfacedObject, IStatement)
@@ -109,7 +120,7 @@ interface
       Statements: array of IStatement;
       procedure StatementNode;
       function TokenLiteral:string;
-      function ToString:string;
+      function Print:string;
     end;
     // TIfExpression
     TIfExpression = class(TInterfacedObject, IExpression)
@@ -119,7 +130,25 @@ interface
       Alternative: TBlockStatement;
       procedure ExpressionNode;
       function TokenLiteral:String;
-      function ToString:String;
+      function Print:String;
+    end;
+    // TFunctionLiteral
+    TFunctionLiteral = class(TInterfacedObject, IExpression)
+      Token: TToken;
+      Parameters: TArray<TIdentifier>;
+      Body: TBlockStatement;
+      procedure ExpressionNode;
+      function TokenLiteral:string;
+      function Print:string;
+    end;
+    // TCallExpression
+    TCallExpression = class(TInterfacedObject, IExpression)
+      Token: TToken;
+      Func: IExpression;
+      Arguments: TArray<IExpression>;
+      function TokenLiteral:string;
+      function Print:string;
+      procedure ExpressionNode;
     end;
 implementation
   // TProgram class
@@ -131,7 +160,7 @@ implementation
       Result := '';
   end;
 
-  function TProgram.ToString: string;
+  function TProgram.Print: string;
   var
     Output: TStringBuilder;
     Stmt: IStatement;
@@ -140,7 +169,7 @@ implementation
     try
       for Stmt in Statements do
       begin
-        Output.Append(Stmt.ToString);
+        Output.Append(Stmt.Print);
       end;
       Result := Output.ToString;
     finally
@@ -149,14 +178,19 @@ implementation
   end;
 
   // TIdentifier class
+  constructor TIdentifier.Create(Token: TToken; Value: string);
+  begin
+    Self.Token := Token;
+    Self.Value := Value;
+  end;
   function TIdentifier.TokenLiteral:string;
   begin
     Result := Token.Literal;
   end;
 
-  function TIdentifier.ToString: string;
+  function TIdentifier.Print: string;
   begin
-    Result := Token.Literal;
+    Result := Value;
   end;
 
   procedure TIdentifier.ExpressionNode;
@@ -169,18 +203,18 @@ implementation
     Result := Token.Literal;
   end;
 
-  function TLetStatement.ToString: string;
+  function TLetStatement.Print: string;
   var
     Output: TStringBuilder;
   begin
     Output := TStringBuilder.Create;
     try
       Output.Append(Token.Literal + ' ');
-      Output.Append(Name.ToString);
+      Output.Append(Name.Print);
       Output.Append(' = ');
 
       if Value <> nil then
-        Output.Append(Value.ToString);
+        Output.Append(Value.Print);
 
       Output.Append(';');
 
@@ -200,7 +234,7 @@ implementation
     Result := Token.Literal;
   end;
 
-  function TReturnStatement.ToString: string;
+  function TReturnStatement.Print: string;
   var
     Output: TStringBuilder;
   begin
@@ -208,7 +242,7 @@ implementation
     try
       Output.Append(Token.Literal + ' ');
       if Value <> nil then
-        Output.Append(Value.ToString);
+        Output.Append(Value.Print);
       Output.Append(';');
       Result := Output.ToString;
     finally
@@ -225,13 +259,13 @@ implementation
     Result := Token.Literal;
   end;
 
-  function TExpressionStatement.ToString: string;
+  function TExpressionStatement.Print: string;
   var
     Output: TStringBuilder;
   begin
     Output := TStringBuilder.Create;
     try
-      Output.Append(Expression.ToString);
+      Output.Append(Expression.Print);
       Output.Append(';');
       Result := Output.ToString;
     finally
@@ -247,7 +281,7 @@ implementation
   begin
     Result := Token.Literal;
   end;
-  function TIntegerLiteral.ToString: string;
+  function TIntegerLiteral.Print: string;
   begin
     Result := Token.Literal;
   end;
@@ -262,7 +296,7 @@ implementation
   begin
     Result := Token.Literal;
   end;
-  function TBooleanLiteral.ToSTring:string;
+  function TBooleanLiteral.Print:string;
   begin
     Result := Token.Literal;
   end;
@@ -274,7 +308,7 @@ implementation
   begin
     Result := Token.Literal;
   end;
-  function TStringLiteral.ToString:string;
+  function TStringLiteral.Print:string;
   begin
     Result := '"' + Value + '"';
   end;
@@ -283,7 +317,7 @@ implementation
   begin
      Result := Token.Literal;
   end;
-  function TPrefixExpression.ToString: string;
+  function TPrefixExpression.Print: string;
   var
     Output: TStringBuilder;
   begin
@@ -291,7 +325,7 @@ implementation
     try
       Output.Append('(');
       Output.Append(Optor);
-      Output.Append(Right.ToString);
+      Output.Append(Right.Print);
       Output.Append(')');
       Result := Output.ToString;
     finally
@@ -309,18 +343,18 @@ implementation
   begin
     Result := Token.Literal;
   end;
-  function TInfixExpression.ToString:string;
+  function TInfixExpression.Print:string;
   var
     Output: TStringBuilder;
   begin
     Output := TStringBuilder.Create;
     try
       Output.Append('(');
-      Output.Append(Left.ToString);
+      Output.Append(Left.Print);
       Output.Append(' ');
       Output.Append(Optor);
       Output.Append(' ');
-      Output.Append(Right.ToString);
+      Output.Append(Right.Print);
       Output.Append(')');
       Result := Output.ToString;
     finally
@@ -335,7 +369,7 @@ implementation
   begin
     Result := Token.Literal;
   end;
-  function TBlockStatement.ToString:string;
+  function TBlockStatement.Print:string;
   var
     Output: TStringBuilder;
     Stmt: IStatement;
@@ -346,7 +380,7 @@ implementation
       //Output.Append(chr(13));
       for Stmt in Statements do
       begin
-        Output.Append(Stmt.ToString);
+        Output.Append(Stmt.Print);
         //Output.Append(chr(13));
       end;
       Output.Append('}');
@@ -364,25 +398,106 @@ implementation
   begin
     Result := Token.Literal;
   end;
-  function TIfExpression.ToString:String;
+  function TIfExpression.Print:String;
   var
     Output: TStringBuilder;
   begin
     Output := TStringBuilder.Create;
     try
       Output.Append('if (');
-      Output.Append(Condition.ToString);
+      Output.Append(Condition.Print);
       Output.Append(')');
-      Output.Append(Consequence.ToString);
+      Output.Append(Consequence.Print);
       if Alternative <> nil then
       begin
         //Output.Append(chr(13));
         Output.Append('else');
-        Output.Append(Alternative.ToString);
+        Output.Append(Alternative.Print);
       end;
       Result := Output.ToString;
     finally
       FreeAndNil(Output);
     end;
+  end;
+  // TFunctionLiteral
+  procedure TFunctionLiteral.ExpressionNode;
+  begin
+  end;
+  function TFunctionLiteral.TokenLiteral:string;
+  begin
+    Result := Token.Literal;
+  end;
+  function TFunctionLiteral.Print:string;
+  var
+    Output: TStringBuilder;
+    ParametersStr: array of string;
+    Param: TIdentifier;
+    I: integer;
+  begin
+    Output := TStringBuilder.Create;
+    try
+      Output.Append('fn (');
+      I := 0;
+      if Length(Parameters) > 0 then
+      begin
+        for Param in Parameters do
+        begin
+          Inc(I);
+          SetLength(ParametersStr, I);
+          ParametersStr[I-1] := Param.Print;
+        end;
+        Output.Append(String.Join(', ', ParametersStr));
+      end;
+      Output.Append(')');
+      Output.Append(Body.Print);
+      Result := Output.ToString;
+    finally
+      FreeAndNil(Output);
+    end;
+  end;
+  function TCallExpression.TokenLiteral:string;
+  begin
+    Result := Token.Literal;
+  end;
+  function TCallExpression.Print:string;
+  var
+    Output: TStringBuilder;
+    Arg: IExpression;
+    Args: TList<string>;
+  begin
+    Args := TList<string>.Create;
+    Output := TStringBuilder.Create;
+    try
+      Output.Append(Func.Print);
+      Output.Append('(');
+      if Length(Arguments) > 0 then
+      begin
+        for Arg in Arguments do
+        begin
+          Args.Add(Arg.Print);
+        end;
+        Output.Append(String.Join(', ', Args.ToArray))
+      end;
+      Output.Append(')');
+      Result := Output.ToString;
+    finally
+      FreeAndNil(Output);
+      FreeAndNil(Args);
+    end;
+  end;
+  procedure TCallExpression.ExpressionNode;
+  begin
+
+  end;
+  procedure TNullLiteral.ExpressionNode;
+  begin
+  end;
+  function TNullLiteral.TokenLiteral: string;
+  begin
+    Result := Token.Literal;
+  end;
+  function TNullLiteral.Print:string;
+  begin
+    Result := 'null';
   end;
 end.

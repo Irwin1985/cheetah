@@ -9,19 +9,11 @@ interface
     ast,
     Generics.Collections;
 
-  const
-    LOWEST      = 1;
-    EQUALS      = 2; // ==
-    LESSGREATER = 3; // > or <
-    SUM         = 4; // +
-    PRODUCT     = 5; // *
-    PREFIX      = 6; // -X or !X
-    CALL        = 7; // myFunction(X)
-
   type
     TPrefixParseFn  = reference to function: IExpression;
     TInfixParseFn   = reference to function(Left: IExpression):IExpression;
     TErrors         = array of string;
+    //TArrayIdent     = array of TIdentifier;
     TParser         = class
     private
       L: TLexer;
@@ -38,7 +30,6 @@ interface
       function ParseLetStatement:TLetStatement;
       function ParseReturnStatement:TReturnStatement;
       function CurTokenIs(Kind: TTokenKind): boolean;
-      function PeekTokenIs(Kind: TTokenKind): boolean;
       function CurPrecedence(Kind: TTokenKind): integer;
       procedure Match(kind: TTokenKind);
       procedure NewError(ErrorMsg: string);
@@ -48,75 +39,86 @@ interface
       function ParseIntegerLiteral: IExpression;
       function ParseBooleanExpression: IExpression;
       function ParseStringLiteral: IExpression;
+      function ParseNullExpression: IExpression;
       function ParsePrefixExpression: IExpression;
       function ParseInfixExpression(Left: IExpression): IExpression;
       function ParseGroupedExpression: IExpression;
       function ParseBlockStatement: TBlockStatement;
       function ParseIfExpression: IExpression;
-
+      function ParseFunctionParameters : TArray<TIdentifier>;
+      function ParseFunctionLiteral: IExpression;
+      function ParseCallExpression(Func: IExpression): IExpression;
+      function ParseCallArguments: TArray<IExpression>;
       // Register procedures
       procedure RegisterPrefix(Kind: TTokenKind; Func: TPrefixParseFn);
       procedure RegisterInfix(Kind: TTokenKind; Func: TInfixParseFn);
     public
+      constructor Create(Lexer: TLexer); overload;
       function ParseProgram: TProgram;
       function GetErrors:TErrors;
     end;
 
-  // create a new TParser
-  function NewParser(Lex:TLexer):TParser;
-
 implementation
-  {Create a new Parser}
-  function NewParser(Lex:TLexer):TParser;
-  var
-    Parser: TParser;
+  const
+    LOWEST      = 1;
+    EQUALITY    = 2; // ==
+    COMPARISON  = 3; // > or <
+    TERM        = 4; // +
+    FACTOR      = 5; // *
+    PREFIX      = 6; // -X or !X
+    CALL        = 7; // myFunction(X)
+
+
+  constructor TParser.Create(Lexer: TLexer);
   begin
-    Parser := TParser.Create;
-    Parser.L := Lex;
-    Parser.PrefixParseFns := TDictionary<TTokenKind, TPrefixParseFn>.Create;
-    Parser.InfixParseFns := TDictionary<TTokenKind, TInfixParseFn>.Create;
-    Parser.Precedences := TDictionary<TTokenKind, Integer>.Create;
+    L              := Lexer;
+    PrefixParseFns := TDictionary<TTokenKind, TPrefixParseFn>.Create;
+    InfixParseFns  := TDictionary<TTokenKind, TInfixParseFn>.Create;
+    Precedences    := TDictionary<TTokenKind, Integer>.Create;
 
     // Fill the token precedence
-    Parser.Precedences.Add(tkEq, EQUALS);
-    Parser.Precedences.Add(tkNotEq, EQUALS);
-    Parser.Precedences.Add(tkLt, LESSGREATER);
-    Parser.Precedences.Add(tkGt, LESSGREATER);
-    Parser.Precedences.Add(tkPlus, SUM);
-    Parser.Precedences.Add(tkMinus, SUM);
-    Parser.Precedences.Add(tkSlash, PRODUCT);
-    Parser.Precedences.Add(tkAsterisk, PRODUCT);
+    Precedences.Add(tkEq,        EQUALITY);
+    Precedences.Add(tkNotEq,     EQUALITY);
+    Precedences.Add(tkLt,        COMPARISON);
+    Precedences.Add(tkGt,        COMPARISON);
+    Precedences.Add(tkPlus,      TERM);
+    Precedences.Add(tkMinus,     TERM);
+    Precedences.Add(tkSlash,     FACTOR);
+    Precedences.Add(tkAsterisk,  FACTOR);
+    Precedences.Add(tkLParen,    CALL);
 
     // Read two tokens, so CurToken and PeekToken are both set
-    Parser.NextToken;
-    Parser.NextToken;
+    NextToken;
+    NextToken;
 
     // Register prefix functions
-    Parser.RegisterPrefix(tkIdent, Parser.ParseIdentifier);
-    Parser.RegisterPrefix(tkInt, Parser.ParseIntegerLiteral);
-    Parser.RegisterPrefix(tkMinus, Parser.ParsePrefixExpression);
-    Parser.RegisterPrefix(tkBang, Parser.ParsePrefixExpression);
-    Parser.RegisterPrefix(tkTrue, Parser.ParseBooleanExpression);
-    Parser.RegisterPrefix(tkFalse, Parser.ParseBooleanExpression);
-    Parser.RegisterPrefix(tkString, Parser.ParseStringLiteral);
-    Parser.RegisterPrefix(tkLParen, Parser.ParseGroupedExpression);
-    Parser.RegisterPrefix(tkIf, Parser.ParseIfExpression);
+    RegisterPrefix(tkIdent, ParseIdentifier);
+    RegisterPrefix(tkInt, ParseIntegerLiteral);
+    RegisterPrefix(tkMinus, ParsePrefixExpression);
+    RegisterPrefix(tkBang, ParsePrefixExpression);
+    RegisterPrefix(tkTrue, ParseBooleanExpression);
+    RegisterPrefix(tkFalse, ParseBooleanExpression);
+    RegisterPrefix(tkNull, ParseNullExpression);
+    RegisterPrefix(tkString, ParseStringLiteral);
+    RegisterPrefix(tkLParen, ParseGroupedExpression);
+    RegisterPrefix(tkIf, ParseIfExpression);
+    RegisterPrefix(tkFunction, ParseFunctionLiteral);
 
     // Register infix functions
-    Parser.RegisterInfix(tkPlus, Parser.ParseInfixExpression);
-    Parser.RegisterInfix(tkMinus, Parser.ParseInfixExpression);
-    Parser.RegisterInfix(tkSlash, Parser.ParseInfixExpression);
-    Parser.RegisterInfix(tkAsterisk, Parser.ParseInfixExpression);
-    Parser.RegisterInfix(tkEq, Parser.ParseInfixExpression);
-    Parser.RegisterInfix(tkNotEq, Parser.ParseInfixExpression);
-    Parser.RegisterInfix(tkLt, Parser.ParseInfixExpression);
-    Parser.RegisterInfix(tkGt, Parser.ParseInfixExpression);
-
-    Result := Parser;
+    RegisterInfix(tkPlus, ParseInfixExpression);
+    RegisterInfix(tkMinus, ParseInfixExpression);
+    RegisterInfix(tkSlash, ParseInfixExpression);
+    RegisterInfix(tkAsterisk, ParseInfixExpression);
+    RegisterInfix(tkEq, ParseInfixExpression);
+    RegisterInfix(tkNotEq, ParseInfixExpression);
+    RegisterInfix(tkLt, ParseInfixExpression);
+    RegisterInfix(tkGt, ParseInfixExpression);
+    RegisterInfix(tkLParen, ParseCallExpression);
   end;
 
   procedure TParser.NextToken;
   begin
+    //FreeAndNil(CurToken);
     CurToken := PeekToken;
     PeekToken := L.NextToken;
   end;
@@ -196,11 +198,6 @@ implementation
     Result := CurToken.Kind = Kind;
   end;
 
-  function TParser.PeekTokenIs(Kind: TTokenKind): boolean;
-  begin
-    Result := PeekToken.Kind = Kind;
-  end;
-
   function TParser.CurPrecedence(Kind: TTokenKind): integer;
   var
     ResultPrecedence: integer;
@@ -239,7 +236,7 @@ implementation
   begin
     Size := Length(Errors) + 1;
     SetLength(Errors, Size);
-    Errors[Size] := ErrorMsg;
+    Errors[Size-1] := ErrorMsg;
   end;
   // Register procedures
   procedure TParser.RegisterPrefix(Kind: TTokenKind; Func: TPrefixParseFn);
@@ -287,14 +284,9 @@ implementation
   end;
 
   function TParser.ParseIdentifier: IExpression;
-  var
-    Ident: TIdentifier;
   begin
-    Ident := TIdentifier.Create;
-    Ident.Token := CurToken;
-    Ident.Value := CurToken.Literal;
+    Result := TIdentifier.Create(CurToken, CurToken.Literal);
     NextToken;
-    Result := Ident;
   end;
 
   function TParser.ParseIntegerLiteral: IExpression;
@@ -333,11 +325,20 @@ implementation
     Result := StringLit;
   end;
 
+  function TParser.ParseNullExpression: IExpression;
+  var
+    NullExp: TNullLiteral;
+  begin
+    NullExp := TNullLiteral.Create;
+    NullExp.Token := CurToken;
+    NextToken;
+    Result := NullExp;
+  end;
+
 
   function TParser.ParsePrefixExpression: IExpression;
   var
     Exp: TPrefixExpression;
-    TokenPrecedence: integer;
   begin
     Exp := TPrefixExpression.Create;
     Exp.Token := CurToken;
@@ -416,5 +417,81 @@ implementation
     end;
     Match(tkRBrace); // closing curly brace (mandatory)
     Result := BlockStmt;
+  end;
+
+  function TParser.ParseFunctionLiteral: IExpression;
+  var
+    FunctionLit: TFunctionLiteral;
+    //I: integer;
+  begin
+    FunctionLit := TFunctionLiteral.Create;
+    FunctionLit.Token := CurToken;
+    NextToken; // skip the 'fn' token
+    // parsing parameters begin.
+    FunctionLit.Parameters := ParseFunctionParameters;
+    // parsing parameters end.
+    FunctionLit.Body := ParseBlockStatement;
+    Result := FunctionLit;
+  end;
+
+  function TParser.ParseFunctionParameters : TArray<TIdentifier>;
+  var
+    I: integer;
+    Params: TArray<TIdentifier>;
+  begin
+    I := 1;
+    Match(tkLParen); // eat '(' parenthesis
+
+    if CurTokenIs(tkRParen) then
+    begin
+      NextToken; // eat the ')' parenthesis
+      Exit;
+    end;
+    SetLength(Params, I);
+    Params[I-1] := TIdentifier.Create(CurToken, CurToken.Literal);
+    NextToken;
+    while CurTokenIs(tkComma) do
+    begin
+      Match(tkComma);
+      Inc(I);
+      SetLength(Params, I);
+      Params[I-1] := TIdentifier.Create(CurToken, CurToken.Literal);
+      NextToken;
+    end;
+    Match(tkRParen); // eat ')' parenthesis
+
+    Result := Params;
+  end;
+
+  function TParser.ParseCallExpression(Func: IExpression): IExpression;
+  var
+    CallExp: TCallExpression;
+  begin
+    CallExp := TCallExpression.Create;
+    CallExp.Token := CurToken;
+    CallExp.Func := Func;
+    CallExp.Arguments := ParseCallArguments;
+    Result := CallExp;
+  end;
+  function TParser.ParseCallArguments: TArray<IExpression>;
+  var
+    Args: TArray<IExpression>;
+    I: integer;
+  begin
+    I := 1;
+    NextToken; // '('
+    if CurTokenIs(tkRParen) then
+      Exit(Args);
+    SetLength(Args, I);
+    Args[I-1] := ParseExpression(LOWEST);
+    while (not CurTokenIs(tkEof)) and (CurTokenIs(tkComma)) do
+    begin
+      NextToken; // ','
+      Inc(I);
+      SetLength(Args, I);
+      Args[I-1] := ParseExpression(LOWEST);
+    end;
+    Match(tkRParen);
+    Result := Args;
   end;
 end.
