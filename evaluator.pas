@@ -9,7 +9,10 @@ uses
   function EvalStatement(Stmts: TArray<IStatement>): IObject;
   function EvalPrefixExpression(Node: TPrefixExpression): IObject;
   function EvalBangOperatorExpression(Right: IObject): IObject;
-
+  function EvalMinusPrefixOperatorExpression(RightNode: IObject): IObject;
+  function EvalInfixExpression(Node: TInfixExpression): IObject;
+  function EvalIntegerInfixExpression(Optor: string; LeftObj: TInteger; RightObj: TInteger): IObject;
+  function NativeToBooleanObject(Input: boolean): IObject;
 implementation
   var
     OTRUE:  IObject;
@@ -42,6 +45,9 @@ implementation
     // TPrefixExpression
     if Node is TPrefixExpression then
       Res := EvalPrefixExpression((Node as TPrefixExpression));
+    // TInfixExpression
+    if Node is TInfixExpression then
+      Res := EvalInfixExpression((Node as TInfixExpression));
 
     Result := Res;
   end;
@@ -61,12 +67,16 @@ implementation
   function EvalPrefixExpression(Node: TPrefixExpression): IObject;
   var
     RightNode: IObject;
+    ResObj: IObject;
   begin
+    ResObj := ONULL;
     RightNode := Eval(Node.Right);
     if Node.Optor = '!' then
-      Exit(EvalBangOperatorExpression(RightNode))
-    else
-      Exit(nil);
+      ResObj := EvalBangOperatorExpression(RightNode);
+    if Node.Optor = '-' then
+      ResObj := EvalMinusPrefixOperatorExpression(RightNode);
+
+    Result := ResObj;
   end;
   function EvalBangOperatorExpression(Right: IObject): IObject;
   begin
@@ -77,20 +87,70 @@ implementation
     if Right = ONULL then
       Exit(OTRUE);
     Exit(OFALSE);
-(*
-      if Right is TBoolean then
-      begin
-        if (Right as TBoolean).Value = true then
-          Exit(OFALSE);
-        if (Right as TBoolean).Value = false then
-          Exit(OTRUE);
-      end;
-      if Right is TNull then
-        Exit(OTRUE);
-
-      Exit(OFALSE);
-*)
   end;
+  function EvalInfixExpression(Node: TInfixExpression): IObject;
+  var
+    LeftObj: IObject;
+    RightObj: IObject;
+    ResObj: IObject;
+    Optor: string;
+  begin
+    ResObj := ONULL;
+    LeftObj := Eval(Node.Left);
+    RightObj := Eval(Node.Right);
+    Optor := Node.Optor;
+
+    if (LeftObj.ObjType = otInteger) and (RightObj.ObjType = otInteger) then
+      ResObj := EvalIntegerInfixExpression(Optor, LeftObj as TInteger, RightObj as TInteger);
+
+    if (ResObj = ONULL) and (Optor = '==') then
+      ResObj := NativeToBooleanObject(LeftObj = RightObj);
+
+    if (ResObj = ONULL) and (Optor = '!=') then
+      ResObj := NativeToBooleanObject(LeftObj <> RightObj);
+
+    Result := ResObj;
+  end;
+
+  function EvalIntegerInfixExpression(Optor: string; LeftObj: TInteger; RightObj: TInteger): IObject;
+  var
+    ResObj: IObject;
+  begin
+    ResObj := ONULL;
+    if Optor = '+' then
+      ResObj := TInteger.Create(LeftObj.Value + RightObj.Value);
+    if Optor = '-' then
+      ResObj := TInteger.Create(LeftObj.Value - RightObj.Value);
+    if Optor = '*' then
+      ResObj := TInteger.Create(LeftObj.Value * RightObj.Value);
+    if Optor = '/' then
+      ResObj := TInteger.Create(LeftObj.Value div RightObj.Value);
+    if Optor = '<' then
+      ResObj := NativeToBooleanObject(LeftObj.Value < RightObj.Value);
+    if Optor = '>' then
+      ResObj := NativeToBooleanObject(LeftObj.Value > RightObj.Value);
+    if Optor = '==' then
+      ResObj := NativeToBooleanObject(LeftObj.Value = RightObj.Value);
+    if Optor = '!=' then
+      ResObj := NativeToBooleanObject(LeftObj.Value <> RightObj.Value);
+
+    Result := ResObj;
+  end;
+
+  function EvalMinusPrefixOperatorExpression(RightNode: IObject): IObject;
+  begin
+    if RightNode.ObjType <> otInteger then
+      Exit(ONULL);
+    Result := TInteger.Create(-(RightNode as TInteger).Value);
+  end;
+
+  function NativeToBooleanObject(Input: boolean): IObject;
+  begin
+    if Input = true then
+      Exit(OTRUE);
+    Exit(OFALSE);
+  end;
+
   initialization
     OTRUE :=  TBoolean.Create(true);
     OFALSE := TBoolean.Create(false);
