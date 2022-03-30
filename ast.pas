@@ -10,18 +10,18 @@ interface
   type
     // TNode class
     INode = interface
-      //['{9105BFC0-E9D9-4F46-A4C6-F2E2A7D65FEC}']
+      ['{9105BFC0-E9D9-4F46-A4C6-F2E2A7D65FEC}']
       function TokenLiteral: string;
       function Print: string;
     end;
     // TStatement class
     IStatement = interface(INode)
-      //['{10C9E129-A0C3-4E5D-AD57-F26C317E2FEE}']
+      ['{10C9E129-A0C3-4E5D-AD57-F26C317E2FEE}']
       procedure StatementNode;
     end;
     // TExpression class
     IExpression = interface(INode)
-      //['{F87674C4-70D1-4CB6-8D75-9FF1823F92B7}']
+      ['{F87674C4-70D1-4CB6-8D75-9FF1823F92B7}']
       procedure ExpressionNode;
     end;
     // TProgram class
@@ -117,10 +117,10 @@ interface
     // TBlockStatement
     TBlockStatement = class(TInterfacedObject, IStatement)
       Token: TToken;
-      Statements: array of IStatement;
-      procedure StatementNode;
+      Statements: TArray<IStatement>;
       function TokenLiteral:string;
-      function Print:string;
+      function Print: string;
+      procedure StatementNode;
     end;
     // TIfExpression
     TIfExpression = class(TInterfacedObject, IExpression)

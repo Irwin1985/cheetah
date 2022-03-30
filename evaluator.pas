@@ -13,6 +13,9 @@ uses
   function EvalInfixExpression(Node: TInfixExpression): IObject;
   function EvalIntegerInfixExpression(Optor: string; LeftObj: TInteger; RightObj: TInteger): IObject;
   function NativeToBooleanObject(Input: boolean): IObject;
+  function EvalStatements(Statements: TArray<IStatement>): IObject;
+  function EvalIfExpression(Node: TIfExpression): IObject;
+  function IsTruthy(Value: IObject): boolean;
 implementation
   var
     OTRUE:  IObject;
@@ -48,6 +51,12 @@ implementation
     // TInfixExpression
     if Node is TInfixExpression then
       Res := EvalInfixExpression((Node as TInfixExpression));
+    // TBlockStatement
+    if Node is TBlockStatement then
+      Res := EvalStatements((Node as TBlockStatement).Statements);
+    // TIfExpression
+    if Node is TIfExpression then
+      Res := EvalIfExpression((Node as TIfExpression));
 
     Result := Res;
   end;
@@ -150,7 +159,46 @@ implementation
       Exit(OTRUE);
     Exit(OFALSE);
   end;
-
+  function EvalStatements(Statements: TArray<IStatement>): IObject;
+  var
+    ResObj: IObject;
+    Stmt: IStatement;
+  begin
+    for Stmt in Statements do
+    begin
+       ResObj := Eval(Stmt);
+    end;
+    Result := ResObj;
+  end;
+  function EvalIfExpression(Node: TIfExpression): IObject;
+  var
+    Condition: IObject;
+    ResObj: IObject;
+  begin
+    ResObj := ONULL;
+    Condition := Eval(Node.Condition);
+    if IsTruthy(Condition) then
+      ResObj := EvalStatements((Node.Consequence as TBlockStatement).Statements)
+    else
+    begin
+      if Node.Alternative <> nil then
+        ResObj := EvalStatements((Node.Alternative as TBlockStatement).Statements);
+    end;
+    Result := ResObj;
+  end;
+  function IsTruthy(Value: IObject): boolean;
+  var
+    Res: Boolean;
+  begin
+    Res := true;
+    if Value.ObjType = otNull then
+      Res := false;
+    if Value = OTRUE then
+      Res := true;
+    if Value = OFALSE then
+      Res := false;
+    Result := Res;
+  end;
   initialization
     OTRUE :=  TBoolean.Create(true);
     OFALSE := TBoolean.Create(false);
