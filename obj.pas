@@ -6,7 +6,13 @@ uses
   SysUtils;
 
 type
-  TObjectType = (otInteger, otString, otBoolean, otNull);
+  TObjectType = (otInteger,
+                  otString,
+                  otBoolean,
+                  otNull,
+                  otReturn,
+                  otError
+                );
   IObject = interface
     ['{91DB7B62-96CB-4298-A2A2-DCF4F4F6C1E5}']
     function ObjType: TObjectType;
@@ -33,6 +39,22 @@ type
 
   // TNull
   TNull = class(TInterfacedObject, IObject)
+    function ObjType: TObjectType;
+    function Inspect: string;
+  end;
+
+  // TReturn
+  TReturn = class(TInterfacedObject, IObject)
+    Value: IObject;
+    constructor Create(Value: IObject); overload;
+    function ObjType: TObjectType;
+    function Inspect: string;
+  end;
+
+  // TError
+  TError = class(TInterfacedObject, IObject)
+    ErrorMsg: string;
+    constructor Create(ErrorMsg: string); overload;
     function ObjType: TObjectType;
     function Inspect: string;
   end;
@@ -68,6 +90,7 @@ implementation
     else
       Result := 'false';
   end;
+  // TNull
   function TNull.ObjType: TObjectType;
   begin
     Result := otNull;
@@ -75,5 +98,32 @@ implementation
   function TNull.Inspect: string;
   begin
     Result := 'null';
+  end;
+  // TReturn
+  function TReturn.ObjType: TObjectType;
+  begin
+    Result := otReturn;
+  end;
+  function TReturn.Inspect: string;
+  begin
+    Result := Value.Inspect;
+  end;
+  constructor TReturn.Create(Value: IObject);
+  begin
+    Self.Value := Value;
+  end;
+
+  // TError
+  constructor TError.Create(ErrorMsg: string);
+  begin
+    Self.ErrorMsg := ErrorMsg;
+  end;
+  function TError.ObjType: TObjectType;
+  begin
+    Result := otError;
+  end;
+  function TError.Inspect: string;
+  begin
+    Result := ErrorMsg;
   end;
 end.
