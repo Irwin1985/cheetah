@@ -28,6 +28,15 @@ type
       function Inspect: string;
   end;
 
+  // TString
+  TString = class(TInterfacedObject, IObject)
+    Value: string;
+    public
+      constructor Create(Value: string); overload;
+      function ObjType: TObjectType;
+      function Inspect: string;
+  end;
+
   // TBoolean
   TBoolean = class(TInterfacedObject, IObject)
     Value: Boolean;
@@ -73,6 +82,19 @@ implementation
   function TInteger.Inspect: string;
   begin
     Result := IntToStr(Value);
+  end;
+  // TString
+  constructor TString.Create(Value: string);
+  begin
+    Self.Value := Value;
+  end;
+  function TString.ObjType: TObjectType;
+  begin
+    Result := otString;
+  end;
+  function TString.Inspect: string;
+  begin
+    Result := Value;
   end;
   // TBoolean
   constructor TBoolean.Create(Value: Boolean);
@@ -126,4 +148,5 @@ implementation
   begin
     Result := ErrorMsg;
   end;
+
 end.

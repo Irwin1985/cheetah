@@ -5,18 +5,20 @@ uses
   SysUtils,
   TypInfo,
   obj,
-  ast;
+  ast,
+  environment;
 
-  function Eval(node: INode): IObject;
-  function EvalProgram(Node: TProgram): IObject;
-  function EvalBlockStatement(Node: TBlockStatement): IObject;
-  function EvalPrefixExpression(Node: TPrefixExpression): IObject;
-  function EvalBangOperatorExpression(Right: IObject): IObject;
-  function EvalMinusPrefixOperatorExpression(RightNode: IObject): IObject;
-  function EvalInfixExpression(Node: TInfixExpression): IObject;
-  function EvalIntegerInfixExpression(Optor: string; LeftObj: TInteger; RightObj: TInteger): IObject;
+  function Eval(node: INode; Env: TEnvironment): IObject;
+  function EvalProgram(Node: TProgram; Env: TEnvironment): IObject;
+  function EvalBlockStatement(Node: TBlockStatement; Env: TEnvironment): IObject;
+  function EvalPrefixExpression(Node: TPrefixExpression; Env: TEnvironment): IObject;
+  function EvalBangOperatorExpression(Right: IObject; Env: TEnvironment): IObject;
+  function EvalMinusPrefixOperatorExpression(RightNode: IObject; Env: TEnvironment): IObject;
+  function EvalInfixExpression(Node: TInfixExpression; Env: TEnvironment): IObject;
+  function EvalIntegerInfixExpression(Optor: string; LeftObj: TInteger; RightObj: TInteger; Env: TEnvironment): IObject;
+  function EvalIdentifier(Node: TIdentifier; Env: TEnvironment): IObject;
   function NativeToBooleanObject(Input: boolean): IObject;
-  function EvalIfExpression(Node: TIfExpression): IObject;
+  function EvalIfExpression(Node: TIfExpression; Env: TEnvironment): IObject;
   function IsTruthy(Value: IObject): boolean;
   function NewError(ErrorMsg: string): TError;
   function IsError(Obj: IObject): boolean;
@@ -26,19 +28,21 @@ implementation
     OFALSE: IObject;
     ONULL:  IObject;
 
-  function Eval(Node: INode): IObject;
+  function Eval(Node: INode; Env: TEnvironment): IObject;
   var
     Res: IObject;
   begin
     // TProgram
     if Node is TProgram then
-      Exit(EvalProgram(Node as TProgram))
+      Exit(EvalProgram(Node as TProgram, Env))
     // TExpressionStatement
     else if Node is TExpressionStatement then
-      Exit(Eval((Node as TExpressionStatement).Expression))
+      Exit(Eval((Node as TExpressionStatement).Expression, Env))
     // TInteger
     else if Node is TIntegerLiteral then
       Exit(TInteger.Create((Node as TIntegerLiteral).Value))
+    else if Node is TStringLiteral then
+      Exit(TString.Create((Node as TStringLiteral).Value))
     // TBoolean
     else if Node is TBooleanLiteral then
       if (Node as TBooleanLiteral).Value = true then
@@ -50,29 +54,41 @@ implementation
       Exit(ONULL)
     // TPrefixExpression
     else if Node is TPrefixExpression then
-      Exit(EvalPrefixExpression((Node as TPrefixExpression)))
+      Exit(EvalPrefixExpression((Node as TPrefixExpression), Env))
     // TInfixExpression
     else if Node is TInfixExpression then
-      Exit(EvalInfixExpression((Node as TInfixExpression)))
+      Exit(EvalInfixExpression((Node as TInfixExpression), Env))
     // TBlockStatement
     else if Node is TBlockStatement then
-      Exit(EvalBlockStatement((Node as TBlockStatement)))
+      Exit(EvalBlockStatement((Node as TBlockStatement), Env))
     // TIfExpression
     else if Node is TIfExpression then
-      Exit(EvalIfExpression((Node as TIfExpression)))
+      Exit(EvalIfExpression((Node as TIfExpression), Env))
     // TReturnStatement
     else if Node is TReturnStatement then
     begin
-      Res := Eval((Node as TReturnStatement).Value);
+      Res := Eval((Node as TReturnStatement).Value, Env);
       if IsError(Res) then
         Exit(Res);
       Exit(TReturn.Create(Res))
     end
+    // TLetStatement
+    else if Node is TLetStatement then
+    begin
+      Res := Eval((Node as TLetStatement).Value, Env);
+      if IsError(Res) then
+        Exit(Res)
+      else
+        Exit(Env.SetObj((Node as TLetStatement).Name.Value, Res))
+    end
+    // TIdentifier
+    else if Node is TIdentifier then
+      Exit(EvalIdentifier((Node as TIdentifier), Env))
     else
       Exit(nil);
   end;
 
-  function EvalProgram(Node: TProgram): IObject;
+  function EvalProgram(Node: TProgram; Env: TEnvironment): IObject;
   var
     Res: IObject;
     Stmt: IStatement;
@@ -80,7 +96,7 @@ implementation
     Res := ONULL;
     for Stmt in Node.Statements do
     begin
-      Res := Eval(Stmt);
+      Res := Eval(Stmt, Env);
       if Res.ObjType = otReturn then
         Exit((Res as TReturn).Value); // Se devuelve el valor
       if Res.ObjType = otError then
@@ -91,7 +107,7 @@ implementation
     Result := Res;
   end;
 
-  function EvalBlockStatement(Node: TBlockStatement): IObject;
+  function EvalBlockStatement(Node: TBlockStatement; Env: TEnvironment): IObject;
   var
     Res: IObject;
     Stmt: IStatement;
@@ -99,29 +115,29 @@ implementation
     Res := ONULL;
     for Stmt in Node.Statements do
     begin
-      Res := Eval(Stmt);
+      Res := Eval(Stmt, Env);
       if (Res <> nil) and ((Res.ObjType = otReturn) or (Res.ObjType = otError)) then
         Exit(Res); // se devuelve el objeto TReturn
     end;
     Result := Res;
   end;
 
-  function EvalPrefixExpression(Node: TPrefixExpression): IObject;
+  function EvalPrefixExpression(Node: TPrefixExpression; Env: TEnvironment): IObject;
   var
     RightObj: IObject;
     ResObj: IObject;
     RightTypeStr: string;
   begin
     ResObj := ONULL;
-    RightObj := Eval(Node.Right);
+    RightObj := Eval(Node.Right, Env);
 
     if IsError(RightObj) then
       Exit(RightObj);
 
     if Node.Optor = '!' then
-      ResObj := EvalBangOperatorExpression(RightObj)
+      ResObj := EvalBangOperatorExpression(RightObj, Env)
     else if Node.Optor = '-' then
-      ResObj := EvalMinusPrefixOperatorExpression(RightObj)
+      ResObj := EvalMinusPrefixOperatorExpression(RightObj, Env)
     else
     begin
       RightTypeStr := GetEnumName(TypeInfo(TObjectType), ord(RightObj.ObjType));
@@ -129,7 +145,7 @@ implementation
     end;
     Result := ResObj;
   end;
-  function EvalBangOperatorExpression(Right: IObject): IObject;
+  function EvalBangOperatorExpression(Right: IObject; Env: TEnvironment): IObject;
   begin
     if Right = OTRUE then
       Exit(OFALSE);
@@ -139,7 +155,7 @@ implementation
       Exit(OTRUE);
     Exit(OFALSE);
   end;
-  function EvalInfixExpression(Node: TInfixExpression): IObject;
+  function EvalInfixExpression(Node: TInfixExpression; Env: TEnvironment): IObject;
   var
     LeftObj     : IObject;
     RightObj    : IObject;
@@ -149,11 +165,11 @@ implementation
   begin
     Optor := Node.Optor;
     // Evaluate the Left hand side of the expression
-    LeftObj := Eval(Node.Left);
+    LeftObj := Eval(Node.Left, Env);
     if IsError(LeftObj) then
       Exit(LeftObj);
     // Evaluate the Right hand side of the expression
-    RightObj := Eval(Node.Right);
+    RightObj := Eval(Node.Right, Env);
     if IsError(RightObj) then
       Exit(RightObj);
 
@@ -163,7 +179,7 @@ implementation
 
     // Check for the operator to compute the expression
     if (LeftObj.ObjType = otInteger) and (RightObj.ObjType = otInteger) then
-      Exit(EvalIntegerInfixExpression(Optor, LeftObj as TInteger, RightObj as TInteger))
+      Exit(EvalIntegerInfixExpression(Optor, LeftObj as TInteger, RightObj as TInteger, Env))
     else if Optor = '==' then
       Exit(NativeToBooleanObject(LeftObj = RightObj))
     else if Optor = '!=' then
@@ -174,7 +190,7 @@ implementation
       Exit(NewError(Format('unknown operator: %s %s %s', [LeftTypeStr, Node.Optor, RightTypeStr])));
   end;
 
-  function EvalIntegerInfixExpression(Optor: string; LeftObj: TInteger; RightObj: TInteger): IObject;
+  function EvalIntegerInfixExpression(Optor: string; LeftObj: TInteger; RightObj: TInteger; Env: TEnvironment): IObject;
   var
     ResObj: IObject;
     LeftTypeStr: string;
@@ -207,7 +223,18 @@ implementation
     Result := ResObj;
   end;
 
-  function EvalMinusPrefixOperatorExpression(RightNode: IObject): IObject;
+  function EvalIdentifier(Node: TIdentifier; Env: TEnvironment): IObject;
+  var
+    Found: boolean;
+    Val: IObject;
+  begin
+    Val := Env.GetObj(Node.Value, Found);
+    if not Found then
+      Exit(NewError('Identifier not found: ' + Node.Value));
+    Result := Val;
+  end;
+
+  function EvalMinusPrefixOperatorExpression(RightNode: IObject; Env: TEnvironment): IObject;
   var
     RightTypeStr: string;
   begin
@@ -225,23 +252,23 @@ implementation
       Exit(OTRUE);
     Exit(OFALSE);
   end;
-  function EvalIfExpression(Node: TIfExpression): IObject;
+  function EvalIfExpression(Node: TIfExpression; Env: TEnvironment): IObject;
   var
     Condition: IObject;
     ResObj: IObject;
   begin
     ResObj := ONULL;
-    Condition := Eval(Node.Condition);
+    Condition := Eval(Node.Condition, Env);
 
     if IsError(Condition) then
       Exit(Condition);
 
     if IsTruthy(Condition) then
-      ResObj := EvalBlockStatement(Node.Consequence)
+      ResObj := EvalBlockStatement(Node.Consequence, Env)
     else
     begin
       if Node.Alternative <> nil then
-        ResObj := EvalBlockStatement(Node.Alternative);
+        ResObj := EvalBlockStatement(Node.Alternative, Env);
     end;
     Result := ResObj;
   end;

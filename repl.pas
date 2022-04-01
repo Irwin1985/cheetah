@@ -2,7 +2,14 @@ unit repl;
 
 interface
   uses
-    SysUtils, token, lexer, parser, ast, obj, evaluator;
+    SysUtils,
+    token,
+    lexer,
+    parser,
+    ast,
+    obj,
+    evaluator,
+    environment;
 const
   PROMPT = '>>';
   procedure Start;
@@ -19,7 +26,9 @@ implementation
     Par: TParser;
     ASTProgram: TProgram;
     Evaluated: IObject;
+    Env: TEnvironment;
   begin
+    Env := TEnvironment.Create;
     while True do
     begin
       Write(PROMPT);
@@ -32,7 +41,7 @@ implementation
         ASTProgram := Par.ParseProgram();
         if Length(Par.GetErrors) > 0 then
           PrintErrors(Par.GetErrors);
-        Evaluated := Eval(ASTProgram);
+        Evaluated := Eval(ASTProgram, Env);
         if Evaluated <> nil then
           Writeln(Evaluated.Inspect);
 
@@ -41,6 +50,7 @@ implementation
         FreeAndNil(Par);
       end;
     end;
+    FreeAndNil(Env);
     FreeAndNil(ASTProgram);
   end;
 
