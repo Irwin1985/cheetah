@@ -118,9 +118,9 @@ interface
     TBlockStatement = class(TInterfacedObject, IStatement)
       Token: TToken;
       Statements: TArray<IStatement>;
+      procedure StatementNode;
       function TokenLiteral:string;
       function Print: string;
-      procedure StatementNode;
     end;
     // TIfExpression
     TIfExpression = class(TInterfacedObject, IExpression)

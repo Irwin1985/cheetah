@@ -8,8 +8,7 @@ interface
     parser,
     ast,
     obj,
-    evaluator,
-    environment;
+    evaluator;
 const
   PROMPT = '>>';
   procedure Start;

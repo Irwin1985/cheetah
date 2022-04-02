@@ -3,7 +3,9 @@ unit obj;
 interface
 
 uses
-  SysUtils;
+  SysUtils,
+  Generics.Collections,
+  ast;
 
 type
   TObjectType = (otInteger,
@@ -11,12 +13,24 @@ type
                   otBoolean,
                   otNull,
                   otReturn,
+                  otFunction,
                   otError
                 );
   IObject = interface
     ['{91DB7B62-96CB-4298-A2A2-DCF4F4F6C1E5}']
     function ObjType: TObjectType;
     function Inspect: string;
+  end;
+
+  TEnvironment = class
+    private
+      Store: TDictionary<string, IObject>;
+      Outer: TEnvironment;
+    public
+      constructor Create; overload;
+      constructor Create(Outer: TEnvironment); overload;
+      function GetObj(Name: string; out Found:boolean): IObject;
+      function SetObj(Name: string; Val: IObject): IObject;
   end;
 
   // TInteger
@@ -68,7 +82,55 @@ type
     function Inspect: string;
   end;
 
+  // TFunction
+  TFunction = class(TInterfacedObject, IObject)
+    Parameters: TArray<TIdentifier>;
+    Body: TBlockStatement;
+    Env: TEnvironment;
+    constructor Create(Parameters: TArray<TIdentifier>; Body: TBlockStatement; Env: TEnvironment); overload;
+    function ObjType: TObjectType;
+    function Inspect: string;
+  end;
+
 implementation
+  // This maps NewEnvironment
+  constructor TEnvironment.Create;
+  begin
+    Store := TDictionary<string, IObject>.Create;
+  end;
+  // This maps NewEnclosedEnvironment
+  constructor TEnvironment.Create(Outer: TEnvironment);
+  begin
+    Store := TDictionary<string, IObject>.Create;
+    Self.Outer := Outer;  
+  end;
+  function TEnvironment.GetObj(Name: string; out Found:boolean): IObject;
+  var
+    Obj: IObject;
+  begin
+    if Store.ContainsKey(Name) then
+    begin
+      Found := true;
+      Store.TryGetValue(Name, Obj);
+    end
+    else
+    begin
+      if Outer <> nil then
+        Obj := Outer.GetObj(Name, Found)
+      else
+      begin
+        Found := false;
+        Obj := nil;
+      end;      
+    end;
+    Result := Obj;
+  end;
+  function TEnvironment.SetObj(Name: string; Val: IObject): IObject;
+  begin
+    Store.Add(Name, Val);
+    Result := Val;
+  end;
+
   // TInteger
   constructor TInteger.Create(Value: Integer);
   begin
@@ -148,5 +210,45 @@ implementation
   begin
     Result := ErrorMsg;
   end;
+  // TFunction
+  constructor TFunction.Create(Parameters: TArray<TIdentifier>; Body: TBlockStatement; Env: TEnvironment);
+  begin
+    Self.Parameters := Parameters;
+    Self.Body := Body;
+    Self.Env := Env;
+  end;
+  function TFunction.ObjType: TObjectType;
+  begin
+    Result := otFunction;
+  end;
+  function TFunction.Inspect: string;
+  var
+    Output: TStringBuilder;
+    Params: TArray<string>;
+    Param: TIdentifier;
+    I: integer;
+  begin
+    Output := TStringBuilder.Create;
+    I := 0;
+    try
+      Output.Append('fn');
+      Output.Append('(');
 
+      if Length(Parameters) > 0 then
+      begin
+        for Param in Parameters do
+        begin
+          Inc(I);
+          SetLength(Params, I);
+          Params[I-1] := Param.Print;
+        end;
+        Output.Append(String.Join(', ', Params));
+      end;
+      Output.Append(')');
+      Output.Append(Body.Print);
+      Result := Output.ToString;
+    finally
+      FreeAndNil(Output);
+    end;
+  end;
 end.

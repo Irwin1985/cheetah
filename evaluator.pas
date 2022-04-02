@@ -5,8 +5,7 @@ uses
   SysUtils,
   TypInfo,
   obj,
-  ast,
-  environment;
+  ast;
 
   function Eval(node: INode; Env: TEnvironment): IObject;
   function EvalProgram(Node: TProgram; Env: TEnvironment): IObject;
@@ -19,6 +18,11 @@ uses
   function EvalIdentifier(Node: TIdentifier; Env: TEnvironment): IObject;
   function NativeToBooleanObject(Input: boolean): IObject;
   function EvalIfExpression(Node: TIfExpression; Env: TEnvironment): IObject;
+  function EvalCallExpression(Node: TCallExpression; Env: TEnvironment): IObject;
+  function EvalExpressions(Exps: TArray<IExpression>; Env: TEnvironment): TArray<IObject>;
+  function ApplyFunction(Func: IObject; Args: TArray<IObject>): IObject;
+  function ExtendFunctionEnv(FunctionObj: TFunction; Args: TArray<IObject>): TEnvironment;
+  function UnwrapReturnValue(Obj: IObject): IObject;
   function IsTruthy(Value: IObject): boolean;
   function NewError(ErrorMsg: string): TError;
   function IsError(Obj: IObject): boolean;
@@ -84,6 +88,11 @@ implementation
     // TIdentifier
     else if Node is TIdentifier then
       Exit(EvalIdentifier((Node as TIdentifier), Env))
+    // TFunction
+    else if Node is TFunctionLiteral then
+      Exit(TFunction.Create((Node as TFunctionLiteral).Parameters, (Node as TFunctionLiteral).Body, Env))
+    else if Node is TCallExpression then
+      Exit(EvalCallExpression(Node as TCallExpression, Env))
     else
       Exit(nil);
   end;
@@ -101,8 +110,6 @@ implementation
         Exit((Res as TReturn).Value); // Se devuelve el valor
       if Res.ObjType = otError then
         Exit((Res as TError));
-
-
     end;
     Result := Res;
   end;
@@ -271,6 +278,88 @@ implementation
         ResObj := EvalBlockStatement(Node.Alternative, Env);
     end;
     Result := ResObj;
+  end;
+
+  function EvalCallExpression(Node: TCallExpression; Env: TEnvironment): IObject;
+  var
+    Func: IObject;
+    Args: TArray<IObject>;
+  begin
+    Func := Eval(Node.Func, Env);
+    if IsError(Func) then
+      Exit(Func);
+
+    Args := EvalExpressions(Node.Arguments, Env);
+    if (Length(Args) = 1) and (IsError(Args[0])) then
+      Exit(Args[0]);
+    Result := ApplyFunction(Func, Args);
+  end;
+
+  function EvalExpressions(Exps: TArray<IExpression>; Env: TEnvironment): TArray<IObject>;
+  var
+    ArrayExp: TArray<IObject>;
+    Exp: IExpression;
+    EvaluatedObj: IObject;
+    I: Integer;
+  begin
+    I := 0;
+    for Exp in Exps do
+    begin
+      EvaluatedObj := Eval(Exp, Env);
+      Inc(I);
+      SetLength(ArrayExp, I);
+      ArrayExp[I-1] := EvaluatedObj;
+      if IsError(EvaluatedObj) then
+        Exit(ArrayExp)
+    end;
+
+    Result := ArrayExp;
+  end;
+
+  function ApplyFunction(Func: IObject; Args: TArray<IObject>): IObject;
+  var
+    FunctionObj: TFunction;
+    ObjTypeStr: string;
+    ExtendedEnv: TEnvironment;
+    Evaluated: IObject;
+  begin
+    if Func is TFunction then
+    begin
+      FunctionObj := Func as TFunction;
+      ExtendedEnv := ExtendFunctionEnv(FunctionObj, Args);
+      Evaluated := EvalBlockStatement(FunctionObj.Body, ExtendedEnv);
+      Result := UnwrapReturnValue(Evaluated);
+    end
+    else
+    begin
+      ObjTypeStr := GetEnumName(TypeInfo(TObjectType), ord(Func.ObjType));
+      Result := NewError(Format('not a function: %s', [ObjTypeStr]));
+    end;
+  end;
+
+  function ExtendFunctionEnv(FunctionObj: TFunction; Args: TArray<IObject>): TEnvironment;
+  var
+    NewEnv: TEnvironment;
+    OldEnv: TEnvironment;
+    ParamIdx: integer;
+    Param: TIdentifier;
+  begin
+    ParamIdx := 0;
+    NewEnv := TEnvironment.Create(FunctionObj.Env);
+    // Add the parameters to NewEnv
+    for Param in FunctionObj.Parameters do
+    begin
+      NewEnv.SetObj(Param.Value, Args[ParamIdx]);
+      Inc(ParamIdx);
+    end;
+    Result := NewEnv;
+  end;
+
+  function UnwrapReturnValue(Obj: IObject): IObject;
+  begin
+    if Obj is TReturn then
+      Exit((Obj as TReturn).Value);
+    Result := Obj;
   end;
   function IsTruthy(Value: IObject): boolean;
   var

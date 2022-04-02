@@ -152,7 +152,7 @@ implementation
 
   function TLexer.IsLetter(Letter:char):boolean;
   begin
-    Result := (('a' <= Letter) and (Letter >= 'z')) or (('A' <= Letter) and (Letter >= 'Z'));
+    Result := Letter in ['a'..'z', 'A'..'Z', '_'];
   end;
 
   function TLexer.ReadIdentifier:string;
